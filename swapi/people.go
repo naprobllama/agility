@@ -4,7 +4,7 @@ import(
 	"net/http"
 	"io"
 	"encoding/json"
-	"fmt"
+	// "fmt"
 	"strconv"
 	"sync"
 	"sort"
@@ -100,7 +100,8 @@ func getPeopleList(searchChar string, baseURL string) ([]People, error) {
 				response, _ := get(url)
 				err := json.Unmarshal([]byte(response), &data)
 				if err != nil {
-					fmt.Printf("\nJSON PARSING FAILED: %s ", err.Error())
+					// keeping for debugging because my internet is sketchy
+					// fmt.Printf("\nJSON PARSING FAILED: %s ", err.Error())
 				} else {
 					ok = true
 				}
@@ -161,7 +162,8 @@ func fillInStarships(people []People) []People {
 					response, _ := get(url)
 					err := json.Unmarshal([]byte(response), &ship)
 					if err != nil {
-						fmt.Printf("\nJSON PARSING FAILED: %s ", err.Error())
+						// keeping for debugging because my internet is sketchy
+						// fmt.Printf("\nJSON PARSING FAILED: %s ", err.Error())
 					} else {
 						ok = true
 					}
@@ -208,7 +210,8 @@ func fillInSpecies(people []People) []People {
 					response, _ := get(url)
 					err := json.Unmarshal([]byte(response), &species)
 					if err != nil {
-						fmt.Printf("\nJSON PARSING FAILED: %s ", err.Error())
+						// keeping for debugging because my internet is sketchy
+						// fmt.Printf("\nJSON PARSING FAILED: %s ", err.Error())
 					} else {
 						ok = true
 					}
@@ -251,7 +254,8 @@ func fillInPlanet(people []People) []People {
 				response, _ := get(peep.Homeworld)
 				err := json.Unmarshal([]byte(response), &planet)
 				if err != nil {
-					fmt.Printf("\nJSON PARSING FAILED: %s ", err.Error())
+					// keeping for debugging because my internet is sketchy
+					// fmt.Printf("\nJSON PARSING FAILED: %s ", err.Error())
 				} else {
 					ok = true
 				}
