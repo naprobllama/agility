@@ -1,6 +1,6 @@
 # agility
 
-Welcome to the SWAPI project I've put together for Agility.
+## Welcome to the SWAPI project I've put together for Agility.
 
 Here are the Requirements.
 
@@ -31,7 +31,7 @@ What do you do if you get no characters back? Prints farewell string.
 How to handle multiple starships? Prints them all. 
 How to handle if a section (starship, home planet, species) is empty? Just ignores it. 
 
-Liberties I took:
+## Liberties I took:
 
 There were ALOT of time constraints on completing this project.
 In no way does this project reflect code I would consider production ready nor architecturally sound.
