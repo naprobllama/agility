@@ -1,10 +1,13 @@
 package swapi // make into character package? 
 
 import(
-	"fmt"
 	"net/http"
 	"io"
 	"encoding/json"
+	"fmt"
+	"strconv"
+	"sync"
+	"sort"
 )	
 
 type PeopleResponse struct {
@@ -17,21 +20,27 @@ type PeopleResponse struct {
 type People struct {
 	Name string `json:"name"`
 	HairColor string `json:"hair_color"`
-	Starships []string `json:"starships"`
+	StarshipURLs []string `json:"starships"`
+	Starships []Starship `json:"starships_data"`
 	Homeworld string `json:"homeworld"`
-	Species []string `json:"species"`
+	Planet Planet
+	SpeciesURLs []string `json:"species"`
+	Species []Species // Should only be one species but just in case someone is a hybrid. Like Spock. :) 
 }
 
 type Starship struct {
+	PersonName string
 	Name string `json:"name"`
 	Model string `json:"model"`
 	StarshipClass string `json:"starship_class"`
 	Manufacturer string `json:"manufacturer"`
 	Crew string `json:"crew"`
 	CargoCapacity string `json:"cargo_capacity"`
+	URL string `json:"url"`
 }
 
 type Planet struct {
+	PersonName string
 	Name string `json:"name"`
 	Climate string `json:"climate"`
 	Population string `json:"population"`
@@ -40,6 +49,7 @@ type Planet struct {
 }
 
 type Species struct {
+	PersonName string
 	Name string `json:"name"`
 	Language string `json:"language"`
 	AverageLifespan string `json:"average_lifespan"`
@@ -47,41 +57,73 @@ type Species struct {
 
 // GetPeopleList() gets all the people from all api pages
 func getPeopleList(searchChar string, baseURL string) ([]People, error) {
+	fmt.Print("\nInside people list: \n")
+
 	people := make([]People, 0)
 
-	url := baseURL+`api/people/?search=` + searchChar
-	var next *string
-	start := "start"
-	next = &start
+	var initialData PeopleResponse
+
+	initialURL := baseURL+`api/people/?search=` + searchChar
+	pageURL := baseURL+`api/people/?search=` + searchChar + `&page=`
+	initialResp, err := get(initialURL)
+	if err != nil {
+		return people, err
+	}
 	
-	for next != nil {
+	if err := json.Unmarshal([]byte(initialResp), &initialData); err != nil {
+		return people, err
+	}
 
-		var data PeopleResponse
+	if initialData.Next == nil {
+		return initialData.Results, nil
+	}
 
-		response, err := get(url)
-		if err != nil {
-			return err
-		}
+	for _, person := range initialData.Results {
+		people = append(people, person)
+	}
 
-		if err := json.Unmarshal([]byte(response), &data); err != nil {
-			return err
-		}
+	pageTotal := ((initialData.Count - 1) / len(initialData.Results)) + 1
+	pageChan := make(chan []People, pageTotal)
+	var wg sync.WaitGroup
 
-		for _, v := range data.Results {
-			people = append(people, v)
-		}
+	for i := 1; i < pageTotal; i++ {
+		url := pageURL + strconv.Itoa(i+1)
 
-		
-		next = data.Next
-		if next != nil {
-			url = *data.Next
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+			var data PeopleResponse
+			fmt.Print("\nStarting a go routine: \n")
+			ok := false
+			for !ok { // Because my home internet provider drops every 7th request or so
+
+				response, _ := get(url)
+				err := json.Unmarshal([]byte(response), &data)
+				if err != nil {
+					fmt.Printf("\nJSON PARSING FAILED: %s ", err.Error())
+				} else {
+					ok = true
+				}
+			}
+			pageChan <- data.Results
+		}()
+	}
+	
+	wg.Wait()
+	close(pageChan)
+
+	for list := range pageChan {
+		fmt.Print("\nRecieved page on the channel: \n")
+		for _, person := range list {
+			people = append(people, person)
 		}
 	}
 
 	return people, nil
 }
 
-//TODO: remove from this package into a http package
+// TODO: remove from this package into a http package
 func get(url string) ([]byte, error) {
 
     resp, err := http.Get(url)
@@ -93,78 +135,150 @@ func get(url string) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
+func alphabetizePeople(people []People) []People {
 
+	sort.Slice(people, func(i, j int) bool {
+		return people[i].Name < people[j].Name
+	})
 
-
-
-
-
-/*
-
-
-	
-	// get page total and count
-
-
-	// get additional pages
-	pageTotal := 1 // (total_items - 1) / page_size + 1
-	for page := 0; page < pageTotal; page++{
-		
-
-		pages = (total_items - 1) / page_size + 1
-	}
-
-	pages := 0
-	for data.Next != nil { // <-- doesn't handle the lambda case yet
-		go GetPage(pageChan)
-		pages++
-	}
-
-	for i := 0; i < pages;{
-        list, ok := <-pageChan
-        if ok {
-			// append list to the full list etc
-			i++ // not failure resistant but will work
-        } 
-    }
-
-
-	 := get()
-	
-	
-	if err := json.Unmarshal([]byte(respBody), &data); err != nil {
-		fmt.Printf("Failed to unmarshal", err)
-		os.Exit(1)
-	}
-
-
-    resp, err := http.Get("https://gobyexample.com")
-    if err != nil {
-        panic(err)
-	}
-	
-	defer resp.Body.Close()
-	
-	respBody, err := io.ReadAll(res.Body)
-	if err != nil {
-		fmt.Printf("client: could not read response body: %s\n", err)
-		os.Exit(1)
-	}
-
-    fmt.Println("Response status:", resp.Status)
-
-
+	return people
 }
 
-func getPage() {
+func fillInStarships(people []People) []People {
+	// go through the list if starship links are present set off go routine
+	var wg sync.WaitGroup
+	starshipChan := make(chan Starship, 500) // todo make this dynamic
 
+	for _, person := range people {
+		for _, shipURL := range person.StarshipURLs {
+
+			wg.Add(1)
+			go func(peeps People, url string) {
+				defer wg.Done()
+
+				var ship Starship
+
+				ok := false
+				for !ok { // Because my home internet provider drops every 7th request or so
+					
+					response, _ := get(url)
+					err := json.Unmarshal([]byte(response), &ship)
+					if err != nil {
+						fmt.Printf("\nJSON PARSING FAILED: %s ", err.Error())
+					} else {
+						ok = true
+					}
+				}
+
+				ship.PersonName = peeps.Name
+
+				starshipChan <- ship
+			}(person, shipURL)
+		}
+	}
+
+	wg.Wait()
+	close(starshipChan)
+
+	for ship := range starshipChan { 
+		for i := 0; i < len(people); i++ {
+			if ship.PersonName == people[i].Name {
+				people[i].Starships = append(people[i].Starships,ship) // save data to slice
+			}
+		}
+	}
+
+	return people // Todo: improve error handling
 }
 
-// GetCharcterList() gets all the characters from the API and returns them
-func (c *Character) AlphabetizeCharacterList( /* wrap sort pamas here) {
 
+func fillInSpecies(people []People) []People {
+	// go through the list if starship links are present set off go routine
+	var wg sync.WaitGroup
+	speciesChan := make(chan Species, 500) // todo make this dynamic
 
+	for _, person := range people {
+		for _, speciesURL := range person.SpeciesURLs {
 
+			wg.Add(1)
+			go func(peeps People, url string) {
+				defer wg.Done()
+
+				var species Species
+
+				ok := false
+				for !ok { // Because my home internet provider drops every 7th request or so
+					
+					response, _ := get(url)
+					err := json.Unmarshal([]byte(response), &species)
+					if err != nil {
+						fmt.Printf("\nJSON PARSING FAILED: %s ", err.Error())
+					} else {
+						ok = true
+					}
+				}
+
+				species.PersonName = peeps.Name
+
+				speciesChan <- species
+			}(person, speciesURL)
+		}
+	}
+
+	wg.Wait()
+	close(speciesChan)
+
+	for species := range speciesChan { 
+		for i := 0; i < len(people); i++ {
+			if species.PersonName == people[i].Name {
+				people[i].Species = append(people[i].Species,species) // save data to slice
+			}
+		}
+	}
+
+	return people // Todo: improve error handling
 }
 
-*/
+func fillInPlanet(people []People) []People {
+	// go through the list if starship links are present set off go routine
+	var wg sync.WaitGroup
+	homeworldChan := make(chan Planet, 150) // todo make this dynamic
+
+	for _, person := range people {
+		wg.Add(1)
+		go func(peep People) {
+			defer wg.Done()
+
+			var planet Planet
+
+			ok := false
+			for !ok { // Because my home internet provider drops every 7th request or so
+				response, _ := get(peep.Homeworld)
+				err := json.Unmarshal([]byte(response), &planet)
+				if err != nil {
+					fmt.Printf("\nJSON PARSING FAILED: %s ", err.Error())
+				} else {
+					ok = true
+				}
+			}
+
+			planet.PersonName = peep.Name // TODO: make the url the key
+
+			homeworldChan <- planet
+		}(person)
+	}
+
+	wg.Wait()
+	close(homeworldChan)
+
+	for planet := range homeworldChan { 
+		fmt.Printf("\nINCOMING Planet >>>> : %s\n", planet)
+		for i := 0; i < len(people); i++ {
+			if planet.PersonName == people[i].Name {
+				people[i].Planet = planet
+			}
+		}
+	}
+
+	return people // Todo: improve error handling
+}
