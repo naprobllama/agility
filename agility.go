@@ -1,7 +1,7 @@
 package main
 
 import (
-	"projects/agility/swapi"
+	"agility/swapi"
 	"fmt"
 	"bufio"
 	"os"

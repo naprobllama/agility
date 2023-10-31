@@ -28,7 +28,9 @@ func (sc *SWAPIClient) GetPeopleList(searchChar string) []People {
 	// Get All Planets
 	withPlanets := fillInPlanet(withStarships)
 
+	// Get Species
 	withEverything := fillInSpecies(withPlanets)
 
+	// Alphabetize and return
 	return alphabetizePeople(withEverything)
 }

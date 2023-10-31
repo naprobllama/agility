@@ -1,3 +1,3 @@
-module projects/agility
+module agility
 
 go 1.21.3
