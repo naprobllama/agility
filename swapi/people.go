@@ -57,7 +57,6 @@ type Species struct {
 
 // GetPeopleList() gets all the people from all api pages
 func getPeopleList(searchChar string, baseURL string) ([]People, error) {
-	fmt.Print("\nInside people list: \n")
 
 	people := make([]People, 0)
 
@@ -94,7 +93,7 @@ func getPeopleList(searchChar string, baseURL string) ([]People, error) {
 		go func() {
 			defer wg.Done()
 			var data PeopleResponse
-			fmt.Print("\nStarting a go routine: \n")
+
 			ok := false
 			for !ok { // Because my home internet provider drops every 7th request or so
 
@@ -114,7 +113,6 @@ func getPeopleList(searchChar string, baseURL string) ([]People, error) {
 	close(pageChan)
 
 	for list := range pageChan {
-		fmt.Print("\nRecieved page on the channel: \n")
 		for _, person := range list {
 			people = append(people, person)
 		}
@@ -145,7 +143,6 @@ func alphabetizePeople(people []People) []People {
 }
 
 func fillInStarships(people []People) []People {
-	// go through the list if starship links are present set off go routine
 	var wg sync.WaitGroup
 	starshipChan := make(chan Starship, 500) // todo make this dynamic
 
@@ -193,7 +190,6 @@ func fillInStarships(people []People) []People {
 
 
 func fillInSpecies(people []People) []People {
-	// go through the list if starship links are present set off go routine
 	var wg sync.WaitGroup
 	speciesChan := make(chan Species, 500) // todo make this dynamic
 
@@ -240,7 +236,6 @@ func fillInSpecies(people []People) []People {
 }
 
 func fillInPlanet(people []People) []People {
-	// go through the list if starship links are present set off go routine
 	var wg sync.WaitGroup
 	homeworldChan := make(chan Planet, 150) // todo make this dynamic
 
@@ -272,7 +267,6 @@ func fillInPlanet(people []People) []People {
 	close(homeworldChan)
 
 	for planet := range homeworldChan { 
-		fmt.Printf("\nINCOMING Planet >>>> : %s\n", planet)
 		for i := 0; i < len(people); i++ {
 			if planet.PersonName == people[i].Name {
 				people[i].Planet = planet
