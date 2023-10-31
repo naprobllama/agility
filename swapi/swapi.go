@@ -55,7 +55,7 @@ func (sc *SWAPIClient) GetPeopleList(searchChar string) error {
 	}
 
 	alphabetized := alphabetizePeople(withEverything)
-	for _, person := range withEverything {
+	for _, person := range alphabetized {
 		fmt.Printf("\nPerson >>>> : %s\n", person.Name)
 		fmt.Printf("\nSpecies >>>> : %s\n", person.Species)
 	}
